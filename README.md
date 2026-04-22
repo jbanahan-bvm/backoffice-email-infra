@@ -2,6 +2,9 @@
 
 CloudFormation infrastructure for backoffice email open tracking.
 
+<img width="821" height="791" alt="email-tracking drawio" src="https://github.com/user-attachments/assets/a44cb9a7-01e8-4b82-b619-5e657fc5c45b" />
+
+
 ## Stack contents
 
 [cloudformation/email-tracking.yaml](cloudformation/email-tracking.yaml):
