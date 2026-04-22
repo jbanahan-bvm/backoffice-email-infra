@@ -1,0 +1,108 @@
+<mxfile host="app.diagrams.net" modified="2026-04-22T00:00:00.000Z" agent="claude-code" version="24.0.0">
+  <diagram name="email-tracking" id="email-tracking">
+    <mxGraphModel dx="1200" dy="800" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <mxCell id="app" value="Backoffice App&#10;(MAILER_DSN + &amp;config_set_name=backoffice-email-tracking)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="260" y="40" width="320" height="70" as="geometry" />
+        </mxCell>
+
+        <mxCell id="ses" value="Amazon SES&#10;(us-west-2)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;" vertex="1" parent="1">
+          <mxGeometry x="320" y="160" width="200" height="70" as="geometry" />
+        </mxCell>
+
+        <mxCell id="configset" value="SES Configuration Set&#10;backoffice-email-tracking&#10;(event destination: SNS, events: open)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;" vertex="1" parent="1">
+          <mxGeometry x="280" y="280" width="280" height="80" as="geometry" />
+        </mxCell>
+
+        <mxCell id="snstopic" value="SNS Topic&#10;backoffice-email-open&#10;(Standard, us-west-2)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;" vertex="1" parent="1">
+          <mxGeometry x="300" y="410" width="240" height="80" as="geometry" />
+        </mxCell>
+
+        <mxCell id="topicpolicy" value="SNS Topic Policy&#10;Allow ses.amazonaws.com : sns:Publish&#10;(scoped by AWS:SourceAccount)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;dashed=1;" vertex="1" parent="1">
+          <mxGeometry x="20" y="410" width="240" height="80" as="geometry" />
+        </mxCell>
+
+        <mxCell id="webhook" value="HTTPS Webhook&#10;https://{Domain}/emailopen/&#10;(auto-forwards SubscribeURL on first hit)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="280" y="560" width="280" height="80" as="geometry" />
+        </mxCell>
+
+        <mxCell id="dlq" value="SQS DLQ&#10;backoffice-email-open-dlq&#10;(14-day retention)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+          <mxGeometry x="620" y="560" width="200" height="80" as="geometry" />
+        </mxCell>
+
+        <mxCell id="dlqpolicy" value="SQS Queue Policy&#10;Allow sns.amazonaws.com : sqs:SendMessage&#10;(scoped by aws:SourceArn)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;dashed=1;" vertex="1" parent="1">
+          <mxGeometry x="600" y="680" width="240" height="70" as="geometry" />
+        </mxCell>
+
+        <mxCell id="alarms" value="CloudWatch Alarms&#10;NumberOfNotificationsFailed&#10;NumberOfNotificationsFilteredOut-InvalidAttributes" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;" vertex="1" parent="1">
+          <mxGeometry x="20" y="560" width="240" height="80" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e1" style="endArrow=classic;html=1;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="app" target="ses">
+          <mxGeometry relative="1" as="geometry" />
+          <mxCell value="send" />
+        </mxCell>
+        <mxCell id="e1lbl" value="send (SMTP)" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" vertex="1" connectable="0" parent="e1">
+          <mxGeometry x="-0.1" relative="1" as="geometry"><mxPoint as="offset" /></mxGeometry>
+        </mxCell>
+
+        <mxCell id="e2" style="endArrow=classic;html=1;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="ses" target="configset">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e2lbl" value="tagged with config set&#10;(SES injects tracking pixel)" style="edgeLabel;html=1;align=center;" vertex="1" connectable="0" parent="e2">
+          <mxGeometry x="-0.1" relative="1" as="geometry"><mxPoint as="offset" /></mxGeometry>
+        </mxCell>
+
+        <mxCell id="e3" style="endArrow=classic;html=1;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="configset" target="snstopic">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e3lbl" value="open event &#8594; SNS" style="edgeLabel;html=1;align=center;" vertex="1" connectable="0" parent="e3">
+          <mxGeometry x="-0.1" relative="1" as="geometry"><mxPoint as="offset" /></mxGeometry>
+        </mxCell>
+
+        <mxCell id="e4" style="endArrow=classic;html=1;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="snstopic" target="webhook">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e4lbl" value="HTTPS subscription" style="edgeLabel;html=1;align=center;" vertex="1" connectable="0" parent="e4">
+          <mxGeometry x="-0.1" relative="1" as="geometry"><mxPoint as="offset" /></mxGeometry>
+        </mxCell>
+
+        <mxCell id="e5" style="endArrow=classic;html=1;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="1" source="snstopic" target="dlq">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e5lbl" value="RedrivePolicy&#10;(failed deliveries)" style="edgeLabel;html=1;align=center;" vertex="1" connectable="0" parent="e5">
+          <mxGeometry x="-0.1" relative="1" as="geometry"><mxPoint as="offset" /></mxGeometry>
+        </mxCell>
+
+        <mxCell id="e6" style="endArrow=classic;html=1;exitX=0;exitY=0.5;entryX=1;entryY=0.5;dashed=1;" edge="1" parent="1" source="snstopic" target="alarms">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e6lbl" value="CloudWatch metrics" style="edgeLabel;html=1;align=center;" vertex="1" connectable="0" parent="e6">
+          <mxGeometry x="-0.1" relative="1" as="geometry"><mxPoint as="offset" /></mxGeometry>
+        </mxCell>
+
+        <mxCell id="e7" style="endArrow=none;html=1;dashed=1;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="1" source="topicpolicy" target="snstopic">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e7lbl" value="attached" style="edgeLabel;html=1;align=center;" vertex="1" connectable="0" parent="e7">
+          <mxGeometry x="-0.1" relative="1" as="geometry"><mxPoint as="offset" /></mxGeometry>
+        </mxCell>
+
+        <mxCell id="e8" style="endArrow=none;html=1;dashed=1;exitX=0.5;exitY=0;entryX=0.5;entryY=1;" edge="1" parent="1" source="dlqpolicy" target="dlq">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e8lbl" value="attached" style="edgeLabel;html=1;align=center;" vertex="1" connectable="0" parent="e8">
+          <mxGeometry x="-0.1" relative="1" as="geometry"><mxPoint as="offset" /></mxGeometry>
+        </mxCell>
+
+        <mxCell id="legend" value="Legend&#10;Blue = app/external · Orange = AWS managed · Green = queue · Purple = observability · Red dashed = IAM/resource policy" style="text;html=1;align=left;verticalAlign=middle;whiteSpace=wrap;fillColor=#f5f5f5;strokeColor=#666666;" vertex="1" parent="1">
+          <mxGeometry x="20" y="780" width="800" height="50" as="geometry" />
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
