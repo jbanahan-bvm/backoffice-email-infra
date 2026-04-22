@@ -1,0 +1,136 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >
+  Email open tracking pipeline: SES configuration set publishes Open events to
+  an SNS topic, which fans out to an HTTPS webhook with an SQS dead-letter queue
+  and CloudWatch alarms. Deploy in us-west-2.
+
+Parameters:
+  Domain:
+    Type: String
+    Description: Host for the webhook endpoint (subscription URL becomes https://{Domain}/emailopen/)
+    AllowedPattern: ^[A-Za-z0-9.-]+$
+    MinLength: 3
+
+Resources:
+  EmailOpenTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: backoffice-email-open
+      DisplayName: Backoffice email open events
+
+  EmailOpenTopicPolicy:
+    Type: AWS::SNS::TopicPolicy
+    Properties:
+      Topics:
+        - !Ref EmailOpenTopic
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: AllowSESPublish
+            Effect: Allow
+            Principal:
+              Service: ses.amazonaws.com
+            Action: sns:Publish
+            Resource: !Ref EmailOpenTopic
+            Condition:
+              StringEquals:
+                AWS:SourceAccount: !Ref AWS::AccountId
+
+  EmailOpenDlq:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: backoffice-email-open-dlq
+      MessageRetentionPeriod: 1209600
+
+  EmailOpenDlqPolicy:
+    Type: AWS::SQS::QueuePolicy
+    Properties:
+      Queues:
+        - !Ref EmailOpenDlq
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: AllowSNSRedrive
+            Effect: Allow
+            Principal:
+              Service: sns.amazonaws.com
+            Action: sqs:SendMessage
+            Resource: !GetAtt EmailOpenDlq.Arn
+            Condition:
+              ArnEquals:
+                aws:SourceArn: !Ref EmailOpenTopic
+
+  EmailOpenSubscription:
+    Type: AWS::SNS::Subscription
+    Properties:
+      TopicArn: !Ref EmailOpenTopic
+      Protocol: https
+      Endpoint: !Sub https://${Domain}/emailopen/
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt EmailOpenDlq.Arn
+
+  EmailTrackingConfigSet:
+    Type: AWS::SES::ConfigurationSet
+    Properties:
+      Name: backoffice-email-tracking
+
+  EmailTrackingEventDestination:
+    Type: AWS::SES::ConfigurationSetEventDestination
+    DependsOn: EmailOpenTopicPolicy
+    Properties:
+      ConfigurationSetName: !Ref EmailTrackingConfigSet
+      EventDestination:
+        Name: open-to-sns
+        Enabled: true
+        MatchingEventTypes:
+          - open
+        SnsDestination:
+          TopicARN: !Ref EmailOpenTopic
+
+  NotificationsFailedAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: backoffice-email-open-notifications-failed
+      AlarmDescription: HTTPS webhook deliveries from backoffice-email-open are failing
+      Namespace: AWS/SNS
+      MetricName: NumberOfNotificationsFailed
+      Dimensions:
+        - Name: TopicName
+          Value: !GetAtt EmailOpenTopic.TopicName
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+
+  InvalidAttributesAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: backoffice-email-open-invalid-attributes
+      AlarmDescription: SNS messages filtered out due to invalid attributes on backoffice-email-open
+      Namespace: AWS/SNS
+      MetricName: NumberOfNotificationsFilteredOut-InvalidAttributes
+      Dimensions:
+        - Name: TopicName
+          Value: !GetAtt EmailOpenTopic.TopicName
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+
+Outputs:
+  ConfigurationSetName:
+    Description: Append &config_set_name=<this value> to MAILER_DSN so SES tags sends and injects the open-tracking pixel
+    Value: !Ref EmailTrackingConfigSet
+  TopicArn:
+    Description: SNS topic ARN for open events
+    Value: !Ref EmailOpenTopic
+  DlqUrl:
+    Description: SQS DLQ URL for failed webhook deliveries
+    Value: !Ref EmailOpenDlq
+  DlqArn:
+    Description: SQS DLQ ARN
+    Value: !GetAtt EmailOpenDlq.Arn
